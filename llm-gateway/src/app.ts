@@ -4,7 +4,7 @@ import config from 'config';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import process from 'node:process';
-import { MsgTypeInbound } from './enums';
+import { MsgTypeInbound as MsgType } from './enums';
 import LLMModel from './llm';
 
 const app = express();
@@ -17,16 +17,16 @@ const io = new Server(httpServer, {
     credentials: false
   }
 });
-
 const llm = new LLMModel();
 
-io.on(MsgTypeInbound.Connect, socket => {
+io.on(MsgType.Connect, socket => {
   console.log(`Client connected: ${socket.id}`);
-  socket.on(MsgTypeInbound.Disconnect, () => {
+  socket.on(MsgType.Disconnect, () => {
     console.log(`Client disconnected: ${socket.id}`);
   });
-  socket.on(MsgTypeInbound.Chat, (prompt: string) => {
+  socket.on(MsgType.Chat, (prompt: string) => {
     console.log(`Received prompt via Socket.io: ${prompt}`); ////
+    llm.run(prompt, (token) => socket.emit(MsgType.Chat, token));
   });
 });
 
@@ -34,11 +34,10 @@ app.use(express.text());
 app.post('/chat', (req, res) => {
   const prompt = JSON.stringify(req.body);
   console.log(`Received prompt via REST: ${prompt}`); ////
-  llm.run(prompt).then(response => {
-    console.log(`Responding with: ${response}`); ////
+  llm.runAndWait(prompt).then(response => {
     res.send(response);
   }, (rejectionReason) => 
-    res.status(500).send(`I am having problems right now: ${rejectionReason}\n`)
+    res.status(500).send(`An error occured: ${rejectionReason}\n`)
   );
 });
 

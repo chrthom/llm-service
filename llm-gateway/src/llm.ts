@@ -1,5 +1,5 @@
 import { Generate, ModelType } from "@llama-node/core";
-import { LLM } from "llama-node";
+import { LLM, LLMResult } from "llama-node";
 import { LLMRS, LoadConfig } from "llama-node/dist/llm/llm-rs.js";
 import path from "path";
 
@@ -21,8 +21,8 @@ export default class LLMModel {
     this.config = {
       batchSize: 15,
       numThreads: 3,
-      numPredict: 1000,
-      temperature: 0.8,
+      numPredict: 2000,
+      temperature: 0.7,
       topP: 0.9,
       topK: 60,
       repeatPenalty: 1.3,
@@ -31,17 +31,24 @@ export default class LLMModel {
       feedPrompt: true
     };
   }
-  async run(prompt: string) {
-    if (!this.ready) return 'I am not ready to answer yet. Please try again later.\n';
+  async runAndWait(prompt: string) {
+    return this.cleanText((await this.run(prompt)).tokens.join(''));
+  }
+  run(prompt: string, onResponse?: (token: string) => void): Promise<LLMResult> {
+    if (!this.ready) return new Promise(() => {
+      return {
+        tokens: ['I am not ready to answer yet. Please try again later.\n'],
+        completed: true
+      }
+    });
     const params = { ...this.config };
     params.prompt = prompt;
-    let response = '';
-    await this.llama.createCompletion(params, (data) => {
-      process.stdout.write(data.token);
-      response += data.token;
+    return this.llama.createCompletion(params, (data) => {
+      process.stdout.write(data.token); ////
+      if (onResponse) onResponse(this.cleanText(data.token));
     });
-    response = response.slice(0, -this.terminatingLetters);
-    response = response.replaceAll("\\n", '\n') + '\n';
-    return response;
+  }
+  private cleanText(text: string): string {
+    return text.replaceAll("\\n", '\n').replaceAll('<end>', '');
   }
 }
