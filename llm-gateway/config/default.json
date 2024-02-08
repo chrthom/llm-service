@@ -1,0 +1,7 @@
+{
+  "stage": "development",
+  "server": {
+    "port": 3000
+  },
+  "terminate_on_error": true
+}
